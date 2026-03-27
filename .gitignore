@@ -1,0 +1,27 @@
+# Credentials - NEVER commit these
+*.json
+credentials/
+service-account*.json
+google_credentials.json
+
+# Environment
+.env
+.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
