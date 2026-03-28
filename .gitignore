@@ -1,5 +1,10 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
 # Credentials - NEVER commit these
-*.json
 credentials/
 service-account*.json
 google_credentials.json
@@ -8,7 +13,7 @@ google_credentials.json
 .env
 .env.local
 
-# Python
+# Python (legacy)
 __pycache__/
 *.py[cod]
 *$py.class

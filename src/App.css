@@ -1,0 +1,295 @@
+/* ================================================================
+   Gemini Live – Voice-only orb UI
+   ================================================================ */
+
+:root {
+  --blue: #4285f4;
+  --blue-glow: rgba(66, 133, 244, 0.35);
+  --red: #ea4335;
+  --red-glow: rgba(234, 67, 53, 0.35);
+  --bg: #0d0d1a;
+  --surface: #18182b;
+  --text: #e8eaf0;
+  --text-dim: rgba(232, 234, 240, 0.45);
+  --orb-size: min(52vw, 240px);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+html {
+  font-size: 15px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ---- App shell ---- */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+/* ---- Stage (center area) ---- */
+
+.stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 24px;
+}
+
+/* ---- Orb button ---- */
+
+.orb {
+  position: relative;
+  width: var(--orb-size);
+  height: var(--orb-size);
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: radial-gradient(circle at 38% 38%, #5e9bff, var(--blue) 70%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.25s ease, box-shadow 0.4s ease, background 0.4s ease;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 0 60px var(--blue-glow), 0 0 120px rgba(66, 133, 244, 0.12);
+}
+
+.orb:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.orb.offline {
+  background: radial-gradient(circle at 38% 38%, #444, #2a2a3a 70%);
+  box-shadow: none;
+}
+
+.orb:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+/* Active (listening) state */
+.orb.active {
+  --vol: 0;
+  background: radial-gradient(circle at 38% 38%, #ff7b6b, var(--red) 70%);
+  box-shadow:
+    0 0 80px var(--red-glow),
+    0 0 calc(60px + 120px * var(--vol)) rgba(234, 67, 53, calc(0.15 + 0.35 * var(--vol)));
+  animation: none !important;
+}
+
+/* Volume-driven ripple rings when listening */
+.orb.active .orb-ring {
+  opacity: var(--vol);
+  transform: scale(calc(0.9 + 0.35 * var(--vol)));
+  border-color: rgba(255, 120, 100, calc(0.15 + 0.5 * var(--vol)));
+  animation: none;
+  transition: transform 0.08s linear, opacity 0.08s linear;
+}
+
+.orb.active .orb-ring.r2 {
+  opacity: calc(var(--vol) * 0.7);
+  transform: scale(calc(0.85 + 0.5 * var(--vol)));
+  animation: none;
+}
+
+/* Speaking state */
+.orb.speaking {
+  background: radial-gradient(circle at 38% 38%, #b388ff, #7c4dff 70%);
+  box-shadow: 0 0 80px rgba(124, 77, 255, 0.35), 0 0 160px rgba(124, 77, 255, 0.12);
+  animation: speaking-pulse 0.8s ease-in-out infinite alternate !important;
+}
+
+@keyframes speaking-pulse {
+  0%   { transform: scale(1);    box-shadow: 0 0 60px rgba(124, 77, 255, 0.3); }
+  100% { transform: scale(1.08); box-shadow: 0 0 100px rgba(124, 77, 255, 0.5); }
+}
+
+.orb.speaking .orb-icon {
+  display: none;
+}
+
+.orb.speaking .orb-ring,
+.orb.speaking .orb-ring.r2 {
+  opacity: 1;
+  border-color: rgba(179, 136, 255, 0.25);
+  animation: ring-pulse 1.6s ease-out infinite;
+}
+
+.orb.speaking .orb-ring.r2 {
+  animation-delay: 0.4s;
+}
+
+/* Sound wave bars inside orb when speaking */
+.orb.speaking::after {
+  content: "";
+  position: absolute;
+  width: 50%;
+  height: 30%;
+  z-index: 2;
+  background:
+    linear-gradient(90deg,
+      transparent 8%, #fff 10%, #fff 14%, transparent 16%,
+      transparent 28%, #fff 30%, #fff 34%, transparent 36%,
+      transparent 48%, #fff 50%, #fff 54%, transparent 56%,
+      transparent 68%, #fff 70%, #fff 74%, transparent 76%,
+      transparent 88%, #fff 90%, #fff 94%, transparent 96%
+    );
+  mask-image: linear-gradient(to top, transparent, white 20%, white 80%, transparent);
+  -webkit-mask-image: linear-gradient(to top, transparent, white 20%, white 80%, transparent);
+  animation: wave-bars 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes wave-bars {
+  0%   { height: 18%; }
+  100% { height: 38%; }
+}
+
+/* ---- Orb icon ---- */
+
+.orb-icon {
+  width: 36%;
+  height: 36%;
+  position: relative;
+  z-index: 2;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
+}
+
+/* ---- Animated rings ---- */
+
+.orb-ring {
+  position: absolute;
+  inset: -14%;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+
+.orb-ring.r2 {
+  inset: -28%;
+  border-width: 1.5px;
+}
+
+.orb.active .orb-ring {
+  opacity: 1;
+  animation: ring-pulse 2s ease-out infinite;
+}
+
+.orb.active .orb-ring.r2 {
+  animation-delay: 0.6s;
+}
+
+@keyframes ring-pulse {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.15);
+    opacity: 0;
+  }
+}
+
+/* Idle breathing for ready state */
+.orb.ready:not(.active) {
+  animation: breathe 4s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.04); }
+}
+
+/* ---- Status text ---- */
+
+.status {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+/* ---- Live transcript ---- */
+
+.transcript {
+  max-width: 80%;
+  text-align: center;
+  font-size: 0.95rem;
+  color: var(--text);
+  opacity: 0.8;
+  line-height: 1.5;
+  animation: fade-up 0.2s ease;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 0.8; transform: translateY(0); }
+}
+
+/* ---- Bottom bar ---- */
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  padding-bottom: max(14px, env(safe-area-inset-bottom));
+  flex-shrink: 0;
+}
+
+.brand {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+}
+
+.bar-btn {
+  padding: 6px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.2s, color 0.2s;
+}
+
+.bar-btn:active {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}

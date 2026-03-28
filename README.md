@@ -1,31 +1,32 @@
 # Gemini Live API - Real-time Voice & Vision Agent Demo
 
-A web-based demo for Google's **Gemini Live API** (Multimodal Live API) via Vertex AI. Supports real-time voice conversation and vision (camera/screen sharing) with Gemini.
+A full-stack **TypeScript** web demo for Google's **Gemini Live API** (Multimodal Live API). Supports real-time voice conversation, camera/screen sharing, function calling, and transcription — all accessible on desktop and mobile browsers.
 
 ## Architecture
 
 ```
-Browser (HTML/JS) ←WebSocket→ Python Proxy Server ←WebSocket→ Vertex AI Live API
+React (Vite) ←WebSocket→ Node.js Proxy Server ←WebSocket→ Gemini Live API
 ```
 
-- **Frontend**: Vanilla HTML/JS — captures audio/video from browser, streams to backend
-- **Backend**: Python WebSocket proxy — handles Google Cloud auth, proxies messages to Vertex AI
-- **API**: Gemini 2.0 Flash Live via Vertex AI WebSocket endpoint
+- **Frontend**: React + TypeScript (Vite) — responsive, mobile-friendly UI
+- **Backend**: Node.js/TypeScript WebSocket proxy — handles Google Cloud auth, proxies messages to Gemini
+- **API**: Gemini Live API via Google AI or Vertex AI WebSocket endpoints
 
 ## Features
 
 - 🎙️ Real-time voice conversation with Gemini
 - 📷 Camera and screen sharing support
 - 📝 Input/output transcription
-- 🔧 Function calling support
+- 🔧 Function calling support (custom tools)
 - 🔍 Google Search grounding
 - ⚙️ Configurable voice, temperature, and activity detection
+- 📱 Mobile-friendly responsive design
 
 ## Prerequisites
 
-- Python 3.9+
-- A Google Cloud project with Vertex AI API enabled
-- A service account key with Vertex AI permissions
+- Node.js 18+
+- A Google Cloud project with Generative Language / Vertex AI API enabled
+- A service account key or `gcloud` application-default credentials
 
 ## Quick Start
 
@@ -34,7 +35,7 @@ Browser (HTML/JS) ←WebSocket→ Python Proxy Server ←WebSocket→ Vertex AI 
 ```bash
 git clone https://github.com/jw782cn/gemini-live-demo.git
 cd gemini-live-demo
-pip install -r requirements.txt
+npm install
 ```
 
 ### 2. Configure credentials
@@ -43,65 +44,76 @@ pip install -r requirements.txt
 cp .env.example .env
 
 # Option A: Service account (recommended for server deployment)
-# Place your service account JSON in a safe location
 export GOOGLE_APPLICATION_CREDENTIALS=/path/to/your/service-account.json
-export GOOGLE_CLOUD_PROJECT=your-project-id
 
 # Option B: gcloud CLI (for local development)
 gcloud auth application-default login
 ```
 
-### 3. Test connectivity
+### 3. Run (dev mode)
 
 ```bash
-python test_connection.py
+npm run dev
 ```
 
-You should see:
-```
-=== Gemini Live API Connection Test ===
+This starts both the **Vite dev server** (http://localhost:3000) and the **WebSocket proxy** (ws://localhost:8080) concurrently.
 
-[1/5] Authenticating...
-  ✅ Access token obtained
-...
-[5/5] Waiting for Gemini response...
-  ✅ Response received!
+Open http://localhost:3000 in your browser (Chrome recommended for microphone access). Works on mobile too.
 
-🎉 All tests passed! End-to-end connectivity verified.
-```
-
-### 4. Run the server
+### 4. Build for production
 
 ```bash
-python server.py
+npm run build
 ```
 
-Open http://localhost:8000 in your browser (Chrome recommended for microphone access).
+Static assets are output to `dist/`. Serve them with any static file server and run the WS proxy separately:
+
+```bash
+npm start   # starts the WebSocket proxy server
+```
 
 ## Project Structure
 
 ```
-├── server.py              # Python WebSocket proxy server + static file server
-├── test_connection.py     # End-to-end connectivity test script
-├── requirements.txt       # Python dependencies
-├── .env.example           # Environment variable template
-├── frontend/
-│   ├── index.html         # Main UI
-│   ├── script.js          # UI logic and event handling
-│   ├── geminilive.js      # Gemini Live API client library
-│   ├── mediaUtils.js      # Audio/video capture utilities
-│   ├── tools.js           # Function calling definitions
-│   └── audio-processors/  # Web Audio API worklets
+├── package.json
+├── tsconfig.json
+├── tsconfig.node.json
+├── vite.config.ts
+├── index.html                    # Vite entry point
+├── .env.example
+├── server/
+│   ├── index.ts                  # WebSocket proxy server
+│   └── auth.ts                   # Google Cloud authentication
+├── src/
+│   ├── main.tsx                  # React entry
+│   ├── App.tsx                   # Root component + layout
+│   ├── App.css                   # Global responsive styles
+│   ├── types.ts                  # Shared TypeScript types
+│   ├── lib/
+│   │   ├── gemini-live-api.ts    # Gemini Live API client
+│   │   └── media-utils.ts        # Audio/video/screen capture
+│   ├── hooks/
+│   │   ├── useGemini.ts          # Connection & message state
+│   │   └── useMedia.ts           # Media stream state
+│   └── components/
+│       ├── ConfigPanel.tsx       # Settings & configuration
+│       ├── ChatPanel.tsx         # Chat messages & input
+│       ├── MediaControls.tsx     # Audio/video/screen controls
+│       └── StatusBar.tsx         # Debug info
+├── public/
+│   └── audio-processors/
+│       ├── capture.worklet.js    # Audio capture worklet
+│       └── playback.worklet.js   # Audio playback worklet
 └── README.md
 ```
 
 ## How It Works
 
-1. Browser connects to the Python proxy via WebSocket (ws://localhost:8080)
+1. Browser connects to the Node.js proxy via WebSocket (ws://localhost:8080)
 2. Proxy authenticates with Google Cloud using service account / default credentials
-3. Proxy establishes a WebSocket connection to Vertex AI's Live API endpoint
-4. Messages are bidirectionally proxied between browser and Vertex AI
-5. Frontend handles audio capture/playback, camera capture, and UI
+3. Proxy establishes a WebSocket connection to the Gemini Live API endpoint
+4. Messages are bidirectionally proxied between browser and Gemini
+5. React frontend handles audio capture/playback, camera capture, and UI
 
 ## Credits
 
