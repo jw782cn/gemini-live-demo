@@ -13,86 +13,39 @@ interface SetupMessage {
   bearer_token?: string;
 }
 
-function proxyMessages(
-  source: WebSocket,
-  destination: WebSocket,
-  label: string,
-) {
-  source.on("message", (raw) => {
-    try {
-      const data = JSON.parse(raw.toString());
-      if (DEBUG) {
-        console.log(
-          `Proxying from ${label}: ${JSON.stringify(data).slice(0, 200)}`,
-        );
-      }
-      destination.send(JSON.stringify(data));
-    } catch (err) {
-      console.error(`Error processing message from ${label}:`, err);
-    }
-  });
-}
-
-async function connectToGemini(
-  clientWs: WebSocket,
-  bearerToken: string,
-  serviceUrl: string,
-) {
-  console.log(`Connecting to Gemini API: ${serviceUrl.slice(0, 80)}...`);
-
-  const upstream = new WebSocket(serviceUrl, {
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${bearerToken}`,
-    },
-    agent: serviceUrl.startsWith("wss://")
-      ? new https.Agent({ rejectUnauthorized: true })
-      : undefined,
-  });
-
-  upstream.on("open", () => {
-    console.log("Connected to Gemini API");
-    proxyMessages(clientWs, upstream, "client");
-    proxyMessages(upstream, clientWs, "server");
-  });
-
-  upstream.on("close", (code, reason) => {
-    console.log(
-      `Server connection closed: ${code} - ${reason.toString()}`,
-    );
-    if (clientWs.readyState === WebSocket.OPEN) {
-      clientWs.close(code, reason.toString());
-    }
-  });
-
-  upstream.on("error", (err) => {
-    console.error("Failed to connect to Gemini API:", err.message);
-    if (clientWs.readyState === WebSocket.OPEN) {
-      clientWs.close(1008, "Upstream connection failed");
-    }
-  });
-
-  clientWs.on("close", () => {
-    if (upstream.readyState === WebSocket.OPEN) {
-      upstream.close();
-    }
-  });
-}
-
 async function handleClient(clientWs: WebSocket) {
   console.log("New WebSocket client connection...");
 
-  const timeout = setTimeout(() => {
-    console.log("Timeout waiting for first message from client");
-    clientWs.close(1008, "Timeout");
-  }, 10_000);
+  const pending: string[] = [];
+  let upstream: WebSocket | null = null;
 
-  clientWs.once("message", async (raw) => {
-    clearTimeout(timeout);
+  clientWs.on("message", (raw) => {
+    const msg = raw.toString();
+    if (DEBUG) console.log(`client → upstream: ${msg.slice(0, 200)}`);
 
+    if (upstream && upstream.readyState === WebSocket.OPEN) {
+      upstream.send(msg);
+      return;
+    }
+
+    pending.push(msg);
+
+    if (pending.length === 1) {
+      bootstrapUpstream(msg);
+    }
+  });
+
+  async function bootstrapUpstream(firstRaw: string) {
     try {
-      const msg: SetupMessage = JSON.parse(raw.toString());
-      let { bearer_token: bearerToken, service_url: serviceUrl } = msg;
+      const first: SetupMessage = JSON.parse(firstRaw);
+      let bearerToken = first.bearer_token;
+      const serviceUrl = first.service_url;
+
+      if (!serviceUrl) {
+        console.error("Error: Service URL is missing");
+        clientWs.close(1008, "Service URL is required");
+        return;
+      }
 
       if (!bearerToken) {
         console.log("Generating access token...");
@@ -105,18 +58,60 @@ async function handleClient(clientWs: WebSocket) {
         console.log("Access token generated");
       }
 
-      if (!serviceUrl) {
-        console.error("Error: Service URL is missing");
-        clientWs.close(1008, "Service URL is required");
-        return;
-      }
+      console.log(`Connecting to Gemini API: ${serviceUrl.slice(0, 80)}...`);
 
-      await connectToGemini(clientWs, bearerToken, serviceUrl);
+      upstream = new WebSocket(serviceUrl, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${bearerToken}`,
+        },
+        agent: serviceUrl.startsWith("wss://")
+          ? new https.Agent({ rejectUnauthorized: true })
+          : undefined,
+      });
+
+      upstream.on("open", () => {
+        console.log("Connected to Gemini API");
+        // Flush everything EXCEPT the first message (service_url — proxy-only)
+        for (let i = 1; i < pending.length; i++) {
+          if (DEBUG) console.log(`client → upstream (buffered): ${pending[i].slice(0, 200)}`);
+          upstream!.send(pending[i]);
+        }
+        pending.length = 0;
+      });
+
+      upstream.on("message", (raw) => {
+        const msg = raw.toString();
+        if (DEBUG) console.log(`upstream → client: ${msg.slice(0, 200)}`);
+        if (clientWs.readyState === WebSocket.OPEN) {
+          clientWs.send(msg);
+        }
+      });
+
+      upstream.on("close", (code, reason) => {
+        console.log(`Server connection closed: ${code} - ${reason.toString()}`);
+        if (clientWs.readyState === WebSocket.OPEN) {
+          clientWs.close(code, reason.toString());
+        }
+      });
+
+      upstream.on("error", (err) => {
+        console.error("Failed to connect to Gemini API:", err.message);
+        if (clientWs.readyState === WebSocket.OPEN) {
+          clientWs.close(1008, "Upstream connection failed");
+        }
+      });
     } catch (err) {
       console.error("Error handling client:", err);
       if (clientWs.readyState === WebSocket.OPEN) {
         clientWs.close(1011, "Internal error");
       }
+    }
+  }
+
+  clientWs.on("close", () => {
+    if (upstream && upstream.readyState === WebSocket.OPEN) {
+      upstream.close();
     }
   });
 }
